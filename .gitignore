@@ -1,0 +1,17 @@
+# Build artifacts
+.build/
+*.dSYM/
+
+# macOS
+.DS_Store
+
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# Swift Package Manager
+.swiftpm/
+
+# Temporary files
+*.tmp
+*.swp
