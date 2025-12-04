@@ -10,7 +10,8 @@ let package = Package(
         .executableTarget(
             name: "SpotBar",
             path: ".",
-            sources: ["main.swift", "AppDelegate.swift", "PillView.swift"]
+            exclude: ["Info.plist", "README.md", "AGENTS.md", "SpotBar.app"],
+            sources: ["main.swift", "AppDelegate.swift", "MarqueeController.swift"]
         )
     ]
 )

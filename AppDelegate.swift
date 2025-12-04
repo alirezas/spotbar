@@ -2,37 +2,42 @@ import AppKit
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem?
-    var pillView: PillView?
+    var marqueeController: MarqueeController?
     var timer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: 90)
         
-        pillView = PillView(frame: NSRect(x: 0, y: 0, width: 200, height: 22))
-        statusItem?.view = pillView
+        guard let statusItem = statusItem else { return }
+        marqueeController = MarqueeController(statusItem: statusItem)
         
         let menu = NSMenu()
         menu.addItem(withTitle: "Restart", action: #selector(restartApp), keyEquivalent: "")
         menu.addItem(withTitle: "Quit", action: #selector(NSApp.terminate(_:)), keyEquivalent: "q")
-        statusItem?.menu = menu
+        statusItem.menu = menu
         
         updateStatusItem()
         
-        // Update every 5 seconds
-        timer = Timer.scheduledTimer(timeInterval: 5.0, target: self, selector: #selector(updateStatusItem), userInfo: nil, repeats: true)
+        timer = Timer.scheduledTimer(timeInterval: 2.0, target: self, selector: #selector(updateStatusItem), userInfo: nil, repeats: true)
     }
     
     @objc func updateStatusItem() {
         let songInfo = getCurrentSong()
-        pillView?.songTitle = songInfo
         
-        // Calculate width
-        let font = NSFont.systemFont(ofSize: 12)
-        let size = (songInfo as NSString).size(withAttributes: [.font: font])
-        let width = min(size.width, 300) // Max width 300, no padding
-        statusItem?.length = width
-        pillView?.frame.size.width = width
-        pillView?.needsDisplay = true
+        if songInfo == "Paused" || songInfo == "Spotify not running" || songInfo.hasPrefix("Error") {
+            statusItem?.length = 0
+            marqueeController?.updateSong(title: "", artist: "")
+        } else {
+            statusItem?.length = 90
+            let components = songInfo.components(separatedBy: " - ")
+            if components.count >= 2 {
+                let title = components[0]
+                let artist = components.dropFirst().joined(separator: " - ")
+                marqueeController?.updateSong(title: title, artist: artist)
+            } else {
+                marqueeController?.updateSong(title: songInfo, artist: "")
+            }
+        }
     }
     
     @objc func restartApp() {

@@ -1,19 +1,19 @@
 # SpotBar
 
-A native macOS menubar app that displays the current playing song from Spotify in a pill-shaped view with scrolling text.
+A minimal macOS menu bar app that displays the currently playing Spotify song with a marquee scrolling effect.
 
 ## Features
 
-- Displays current Spotify song title and artist
-- Pill-shaped transparent design
-- Scrolling text for long titles
+- Shows current Spotify track (artist - title) in the menu bar
+- Marquee scrolling for long text
+- Auto-hides when Spotify is paused or not running
+- Compatible with menu bar managers like Ice
 - Right-click menu for Restart and Quit
-- Adapts to light/dark mode
 
 ## Requirements
 
-- macOS 10.12+
-- Spotify app installed and running
+- macOS 10.15+
+- Spotify app installed
 
 ## Build
 
@@ -21,13 +21,14 @@ A native macOS menubar app that displays the current playing song from Spotify i
 swift build
 ```
 
-## Run
+## Install
 
 ```bash
+cp .build/debug/SpotBar SpotBar.app/Contents/MacOS/SpotBar
 open SpotBar.app
 ```
 
-Or after building:
+## Run (Development)
 
 ```bash
 swift run
@@ -35,7 +36,8 @@ swift run
 
 ## Permissions
 
-Grant automation permissions for SpotBar to control Spotify in System Preferences > Security & Privacy > Privacy > Automation.
+Grant automation permissions for SpotBar to control Spotify:
+System Preferences > Security & Privacy > Privacy > Automation
 
 ## License
 
