@@ -48,7 +48,9 @@ The executable will be in `.build/release/SpotBar`
 
 ## Permissions
 
-The app uses the MediaPlayer framework to access system-wide music information. No special permissions are required.
+The app uses the MediaPlayer framework to access system-wide music information. For Spotify, it uses AppleScript which may require automation permissions:
+- System Settings → Privacy & Security → Automation
+- Allow SpotBar to control Spotify
 
 ## Requirements
 
