@@ -23,6 +23,12 @@ cp .build/release/SpotBar "$EXECUTABLE_PATH/SpotBar"
 echo "Copying Info.plist..."
 cp Info.plist "$APP_PATH/Info.plist"
 
+# Copy icon if it exists
+if [ -f "icon.icns" ]; then
+    echo "Copying icon..."
+    cp icon.icns "$RESOURCES_PATH/icon.icns"
+fi
+
 # Make executable
 chmod +x "$EXECUTABLE_PATH/SpotBar"
 
