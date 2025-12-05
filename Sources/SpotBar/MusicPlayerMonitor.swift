@@ -4,7 +4,7 @@ import Combine
 import AppKit
 
 class MusicPlayerMonitor: ObservableObject {
-    @Published var currentTrack: String = "No music playing"
+    @Published var currentTrack: String = ""
     
     private var timer: Timer?
     private let nowPlayingInfoCenter = MPNowPlayingInfoCenter.default()
@@ -47,7 +47,7 @@ class MusicPlayerMonitor: ObservableObject {
         
         // No music playing
         DispatchQueue.main.async {
-            self.currentTrack = "No music playing"
+            self.currentTrack = ""
         }
     }
     
