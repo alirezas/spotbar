@@ -1,44 +1,56 @@
 # SpotBar
 
-A minimal macOS menu bar app that displays the currently playing Spotify song with a marquee scrolling effect.
+A macOS menubar app that displays the currently playing song in "artist - song" format.
 
 ## Features
 
-- Shows current Spotify track (artist - title) in the menu bar
-- Marquee scrolling for long text
-- Auto-hides when Spotify is paused or not running
-- Compatible with menu bar managers like Ice
-- Right-click menu for Restart and Quit
+- Displays currently playing music from any app (Spotify, Apple Music, etc.)
+- Updates in real-time
+- No dock icon (runs in menubar only)
+- Automatically truncates long song names
 
-## Requirements
+## Building
 
-- macOS 10.15+
-- Spotify app installed
+### Create App Bundle (Recommended)
 
-## Build
+The easiest way to build a proper macOS app bundle:
 
 ```bash
-swift build
+./create_app.sh
 ```
 
-## Install
+This will create `SpotBar.app` which you can double-click to run or move to your Applications folder.
+
+### Using Swift Package Manager
 
 ```bash
-cp .build/debug/SpotBar SpotBar.app/Contents/MacOS/SpotBar
-open SpotBar.app
+swift build -c release
 ```
 
-## Run (Development)
+The executable will be in `.build/release/SpotBar`
 
-```bash
-swift run
-```
+### Using Xcode
+
+1. Open the project in Xcode:
+   ```bash
+   open Package.swift
+   ```
+
+2. Select the `SpotBar` scheme and build (⌘B)
+
+3. Run the app (⌘R)
+
+## Usage
+
+1. Build and run the app
+2. The app will appear in your menubar showing the currently playing song
+3. If no music is playing, it will display "No music playing"
 
 ## Permissions
 
-Grant automation permissions for SpotBar to control Spotify:
-System Preferences > Security & Privacy > Privacy > Automation
+The app uses the MediaPlayer framework to access system-wide music information. No special permissions are required.
 
-## License
+## Requirements
 
-MIT
+- macOS 13.0 or later
+- Swift 5.9 or later
