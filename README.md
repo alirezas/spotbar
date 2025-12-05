@@ -56,3 +56,14 @@ The app uses the MediaPlayer framework to access system-wide music information. 
 
 - macOS 13.0 or later
 - Swift 5.9 or later
+
+## Development Workflow
+
+For detailed information on building, versioning, and releasing SpotBar, see [WORKFLOW.md](WORKFLOW.md).
+
+Quick release workflow:
+1. Update `CHANGELOG.md` with new version and changes
+2. Build: `./create_app.sh`
+3. Tag: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
+4. Push tag: `git push origin vX.Y.Z`
+5. Create release: `gh release create vX.Y.Z --title "vX.Y.Z" --notes "..." SpotBar.app.zip`
