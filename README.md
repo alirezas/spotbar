@@ -46,6 +46,31 @@ The executable will be in `.build/release/SpotBar`
 2. The app will appear in your menubar showing the currently playing song
 3. If no music is playing, it will display "No music playing"
 
+### If macOS says “SpotBar.app is damaged”
+
+Gatekeeper can flag unsigned downloads as “damaged.” Clear the quarantine bit and open:
+
+```bash
+xattr -cr "$HOME/Downloads/SpotBar.app"
+open "$HOME/Downloads/SpotBar.app"
+```
+
+If it still blocks, Control-click the app → Open → Open. To force a one-time allow when testing unsigned builds:
+
+```bash
+sudo spctl --master-disable
+xattr -dr com.apple.quarantine "$HOME/Downloads/SpotBar.app"
+open "$HOME/Downloads/SpotBar.app"
+sudo spctl --master-enable
+```
+
+To verify the download isn’t actually corrupt:
+
+```bash
+codesign -vv "$HOME/Downloads/SpotBar.app"
+spctl -a -vv "$HOME/Downloads/SpotBar.app"
+```
+
 ## Permissions
 
 The app uses the MediaPlayer framework to access system-wide music information. For Spotify, it uses AppleScript which may require automation permissions:
