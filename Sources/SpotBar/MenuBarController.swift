@@ -24,12 +24,14 @@ final class MenuBarMarqueeView: NSView {
     private var offset: CGFloat = 0
     
     private let font: NSFont
+    private let contextMenu: NSMenu
     private let scrollInterval: TimeInterval = 0.035
     private let scrollStep: CGFloat = 1.25
     private let padding = "   "
     
-    init(width: CGFloat, font: NSFont) {
+    init(width: CGFloat, font: NSFont, menu: NSMenu) {
         self.font = font
+        self.contextMenu = menu
         super.init(frame: NSRect(x: 0, y: 0, width: width, height: 22))
         wantsLayer = true
         layer?.masksToBounds = true
@@ -113,6 +115,22 @@ final class MenuBarMarqueeView: NSView {
         let y = (bounds.height - labelHeight) / 2
         label.frame.origin.y = y
     }
+    
+    override func rightMouseDown(with event: NSEvent) {
+        NSMenu.popUpContextMenu(contextMenu, with: event, for: self)
+    }
+    
+    override func menu(for event: NSEvent) -> NSMenu? {
+        contextMenu
+    }
+    
+    override func mouseDown(with event: NSEvent) {
+        if event.modifierFlags.contains(.control) {
+            NSMenu.popUpContextMenu(contextMenu, with: event, for: self)
+            return
+        }
+        super.mouseDown(with: event)
+    }
 }
 
 class MenuBarController: ObservableObject {
@@ -121,6 +139,17 @@ class MenuBarController: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private let statusItemWidth: CGFloat = 80
     private var marqueeView: MenuBarMarqueeView?
+    private lazy var statusMenu: NSMenu = {
+        let menu = NSMenu()
+        let quitItem = NSMenuItem(
+            title: "Quit SpotBar",
+            action: #selector(quitApp),
+            keyEquivalent: "q"
+        )
+        quitItem.target = self
+        menu.addItem(quitItem)
+        return menu
+    }()
     
     init() {
         setupStatusBar()
@@ -133,7 +162,7 @@ class MenuBarController: ObservableObject {
         guard let statusItem = statusItem else { return }
         
         let font = NSFont.systemFont(ofSize: 13)
-        let view = MenuBarMarqueeView(width: statusItemWidth, font: font)
+        let view = MenuBarMarqueeView(width: statusItemWidth, font: font, menu: statusMenu)
         marqueeView = view
         statusItem.view = view
     }
@@ -160,5 +189,9 @@ class MenuBarController: ObservableObject {
             view.needsDisplay = true
             view.update(text: text)
         }
+    }
+    
+    @objc private func quitApp() {
+        NSApplication.shared.terminate(nil)
     }
 }
