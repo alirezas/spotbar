@@ -148,6 +148,17 @@ class MenuBarController: ObservableObject {
     }
     
     private func updateMenuBarText(_ text: String) {
-        marqueeView?.update(text: text)
+        let targetWidth: CGFloat = text.isEmpty ? 0 : statusItemWidth
+        
+        if let statusItem = statusItem {
+            statusItem.length = targetWidth
+        }
+        
+        if let view = marqueeView {
+            view.setFrameSize(NSSize(width: targetWidth, height: view.frame.height))
+            view.needsLayout = true
+            view.needsDisplay = true
+            view.update(text: text)
+        }
     }
 }
