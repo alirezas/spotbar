@@ -9,8 +9,12 @@
     <key>CFBundleIconFile</key>
     <string>icon</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.0.3</string>
+    <string>0.1.0</string>
     <key>CFBundleVersion</key>
-    <string>3</string>
+    <string>4</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.dot.spotbar</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>SpotBar needs permission to read media info from Spotify and Google Chrome.</string>
 </dict>
 </plist>

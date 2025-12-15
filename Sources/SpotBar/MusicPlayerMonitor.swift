@@ -44,6 +44,14 @@ class MusicPlayerMonitor: ObservableObject {
             }
             return
         }
+
+        // Check Google Chrome for audible media (e.g., YouTube)
+        if let chromeVideoTitle = getChromeVideoTitle() {
+            DispatchQueue.main.async {
+                self.currentTrack = chromeVideoTitle
+            }
+            return
+        }
         
         // No music playing
         DispatchQueue.main.async {
@@ -71,6 +79,74 @@ class MusicPlayerMonitor: ObservableObject {
             return result.stringValue
         }
         
+        return nil
+    }
+
+    private func getChromeVideoTitle() -> String? {
+        // Using raw string literal to avoid escaping issues
+        // In AppleScript, we use backslash-quote (\") to embed quotes inside a string
+        let script = #"""
+        tell application "Google Chrome"
+            if it is not running then return missing value
+            if (count of windows) is 0 then return missing value
+            
+            set targetTitle to missing value
+            set jsCheck to "(() => { const media = Array.from(document.querySelectorAll(\"video,audio\")); if (media.length === 0) return \"NO_MEDIA\"; const playing = media.find(m => !m.paused && !m.ended && m.currentTime > 0); if (playing) return document.title || \"\"; return \"PAUSED\"; })();"
+            
+            repeat with w in every window
+                repeat with t in every tab of w
+                    set jsResult to "NO_MEDIA"
+                    try
+                        set jsResult to execute t javascript jsCheck
+                    end try
+                    
+                    if jsResult is not "PAUSED" and jsResult is not "NO_MEDIA" and jsResult is not "" then
+                        set targetTitle to jsResult
+                        exit repeat
+                    end if
+                    
+                    if jsResult is "PAUSED" then
+                        -- Video is paused, skip fallbacks
+                    else
+                        set isAudible to false
+                        try
+                            set isAudible to audible of t
+                        end try
+                        
+                        if isAudible is true then
+                            set targetTitle to title of t
+                            exit repeat
+                        end if
+                    end if
+                end repeat
+                
+                if targetTitle is not missing value then exit repeat
+            end repeat
+            
+            return targetTitle
+        end tell
+        """#
+        
+        guard let appleScript = NSAppleScript(source: script) else { return nil }
+        
+        var error: NSDictionary?
+        let result = appleScript.executeAndReturnError(&error)
+        
+        if let error = error {
+            // -1743 is "Not permitted to send Apple events"
+            if let code = error[NSAppleScript.errorNumber] as? Int, code == -1743 {
+                return "Allow Chrome automation in System Settings → Privacy & Security → Automation"
+            }
+            if let code = error[NSAppleScript.errorNumber] as? Int, code == 12 {
+                return "Enable Chrome: View → Developer → Allow JavaScript from Apple Events"
+            }
+            return nil
+        }
+        
+        if let title = result.stringValue, !title.isEmpty {
+            return "Chrome - \(title)"
+        }
+
         return nil
     }
     
