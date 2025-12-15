@@ -83,42 +83,40 @@ class MusicPlayerMonitor: ObservableObject {
     }
 
     private func getChromeVideoTitle() -> String? {
-        let script = """
+        // Using raw string literal to avoid escaping issues
+        // In AppleScript, we use backslash-quote (\") to embed quotes inside a string
+        let script = #"""
         tell application "Google Chrome"
-            if application "Google Chrome" is not running then return missing value
+            if it is not running then return missing value
             if (count of windows) is 0 then return missing value
             
             set targetTitle to missing value
-            set jsCheck to "(() => { const media = Array.from(document.querySelectorAll('video,audio')); const playing = media.find(m => !m.paused && !m.ended && m.currentTime > 0); if (!playing) return ''; return document.title || ''; })();"
+            set jsCheck to "(() => { const media = Array.from(document.querySelectorAll(\"video,audio\")); if (media.length === 0) return \"NO_MEDIA\"; const playing = media.find(m => !m.paused && !m.ended && m.currentTime > 0); if (playing) return document.title || \"\"; return \"PAUSED\"; })();"
             
             repeat with w in every window
                 repeat with t in every tab of w
-                    -- Try JS; swallow errors so the script doesn't abort
-                    set playingTitle to ""
+                    set jsResult to "NO_MEDIA"
                     try
-                        set playingTitle to execute javascript jsCheck in t
+                        set jsResult to execute t javascript jsCheck
                     end try
                     
-                    if playingTitle is not "" then
-                        set targetTitle to playingTitle
+                    if jsResult is not "PAUSED" and jsResult is not "NO_MEDIA" and jsResult is not "" then
+                        set targetTitle to jsResult
                         exit repeat
                     end if
                     
-                    -- Fallback: if it's a YouTube watch tab, use the tab title
-                    set tabURL to URL of t
-                    if tabURL contains "youtube.com/watch" then
-                        set targetTitle to title of t
-                        exit repeat
-                    end if
-                    
-                    set isAudible to false
-                    try
-                        set isAudible to audible of t
-                    end try
-                    
-                    if isAudible is true then
-                        set targetTitle to title of t
-                        exit repeat
+                    if jsResult is "PAUSED" then
+                        -- Video is paused, skip fallbacks
+                    else
+                        set isAudible to false
+                        try
+                            set isAudible to audible of t
+                        end try
+                        
+                        if isAudible is true then
+                            set targetTitle to title of t
+                            exit repeat
+                        end if
                     end if
                 end repeat
                 
@@ -127,7 +125,7 @@ class MusicPlayerMonitor: ObservableObject {
             
             return targetTitle
         end tell
-        """
+        """#
         
         guard let appleScript = NSAppleScript(source: script) else { return nil }
         
