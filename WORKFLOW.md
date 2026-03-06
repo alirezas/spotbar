@@ -1,261 +1,141 @@
-# Build, Deploy, Versioning, and Release Workflow
+# Development Workflow
 
-This document describes the complete workflow for building, versioning, and releasing SpotBar.
+## Version Management
 
-## Versioning
+Version is tracked in a single file: `version.env`
 
-SpotBar follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (SemVer):
+```
+MARKETING_VERSION=0.1.0
+BUILD_NUMBER=5
+```
 
-- **MAJOR** version for incompatible API changes
-- **MINOR** version for backwards-compatible functionality additions
-- **PATCH** version for backwards-compatible bug fixes
+- `MARKETING_VERSION` — semver displayed to users (CFBundleShortVersionString)
+- `BUILD_NUMBER` — incremental build number (CFBundleVersion)
+- `Info.plist` is generated at build time from these values — no manual plist editing
 
-### Version Format
+```bash
+make version      # Print current version
+make bump-build   # Increment build number
+```
 
-Versions are formatted as `MAJOR.MINOR.PATCH` (e.g., `0.0.1`, `1.2.3`).
+## Development
 
-### Version Tracking
+### Quick Build & Run
 
-- Version information is maintained in `CHANGELOG.md`
-- Git tags follow the format `vMAJOR.MINOR.PATCH` (e.g., `v0.0.1`)
-- Each release corresponds to a git tag and GitHub release
+```bash
+make run
+```
 
-## Build Process
+This kills any running SpotBar instance, builds a release binary, creates the `.app` bundle, launches it, and verifies the process started.
+
+### Build Only
+
+```bash
+make build             # Single arch (host architecture)
+make build-universal   # Universal binary (arm64 + x86_64)
+```
+
+### Other Commands
+
+```bash
+make clean   # Remove .build/ and SpotBar.app
+make icon    # Regenerate icon.icns from assets/ PNGs
+```
+
+## Scripts
+
+All scripts live in `Scripts/`:
+
+| Script | Purpose |
+|--------|---------|
+| `package_app.sh` | Build binary, create .app bundle, generate Info.plist, code sign |
+| `compile_and_run.sh` | Dev loop: kill, build, launch, verify |
+| `create_icon.sh` | Generate icon.icns from PNG assets |
+| `release.sh` | Full release workflow |
+
+### Environment Variables
+
+`package_app.sh` accepts these environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `APP_NAME` | SpotBar | App and binary name |
+| `BUNDLE_ID` | com.dot.spotbar | Bundle identifier |
+| `ARCHES` | host arch | Space-separated architectures (e.g., `arm64 x86_64`) |
+| `SIGNING_MODE` | adhoc | `adhoc` for dev, or set `APP_IDENTITY` for Developer ID |
+| `APP_IDENTITY` | (empty) | Code signing identity for release builds |
+
+## Releasing
 
 ### Prerequisites
 
-- macOS 13.0 or later
-- Swift 5.9 or later
-- Git
-- GitHub CLI (`gh`) for releases
+- [GitHub CLI](https://cli.github.com/) (`gh`) installed and authenticated
+- Clean working tree (no uncommitted changes)
+- Updated `CHANGELOG.md` with the new version entry
 
-### Building the App Bundle
-
-The recommended way to build a distributable app bundle:
+### Release Process
 
 ```bash
-./create_app.sh
+# 1. Update CHANGELOG.md with new version and changes
+# 2. Commit: git add CHANGELOG.md && git commit -m "Update changelog for 0.2.0"
+# 3. Release:
+make release
+# or directly:
+./Scripts/release.sh 0.2.0
 ```
 
-This script:
-1. Builds the Swift package in release mode (`swift build -c release`)
-2. Creates the macOS app bundle structure (`SpotBar.app/Contents/`)
-3. Copies the compiled executable to `Contents/MacOS/SpotBar`
-4. Copies `Info.plist` to `Contents/Info.plist`
-5. Copies `icon.icns` to `Contents/Resources/icon.icns`
-6. Makes the executable executable
+The release script:
+1. Validates semver format
+2. Checks CHANGELOG.md contains the version
+3. Checks for clean working tree
+4. Updates `version.env` with new version + bumps build number
+5. Builds a universal binary (arm64 + x86_64)
+6. Creates `SpotBar-X.Y.Z.zip`
+7. Commits the version.env change
+8. Creates annotated git tag `vX.Y.Z`
+9. Pushes commit and tag
+10. Creates GitHub release with notes extracted from CHANGELOG
 
-The output is `SpotBar.app`, ready for distribution.
+## CI/CD
 
-### Alternative Build Methods
+### Build Validation (`.github/workflows/ci.yml`)
 
-**Swift Package Manager (executable only):**
-```bash
-swift build -c release
-```
-Output: `.build/release/SpotBar`
+Runs on every push to `main` and on pull requests:
+- Compiles the Swift package
+- Builds the app bundle via `package_app.sh`
+- Verifies bundle structure and code signature
 
-**Xcode:**
-```bash
-open Package.swift
-```
-Then build using Xcode (⌘B)
+### Tag-Triggered Release (`.github/workflows/release.yml`)
 
-## Release Workflow
+When a `v*` tag is pushed:
+- Builds a universal binary
+- Creates a versioned zip
+- Creates a GitHub release with notes from CHANGELOG
 
-### Step 1: Update CHANGELOG
+## Code Signing
 
-Before creating a release, update `CHANGELOG.md` with the new version and changes:
+**Development:** Ad-hoc signing by default (`codesign -s "-"`). No certificates needed.
 
-```markdown
-## [X.Y.Z] - YYYY-MM-DD
-
-### Added
-- New feature description
-
-### Changed
-- Change description
-
-### Fixed
-- Bug fix description
-```
-
-Follow the [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
-
-### Step 2: Commit Changes
-
-Commit all changes including the updated CHANGELOG:
+**Release with Developer ID:** Set the `APP_IDENTITY` environment variable:
 
 ```bash
-git add .
-git commit -m "Prepare release vX.Y.Z"
-git push
+APP_IDENTITY="Developer ID Application: Your Name (TEAMID)" make build
 ```
 
-### Step 3: Build the App
+**Notarization:** Not yet configured. When ready, add a `Scripts/sign-and-notarize.sh` using `xcrun notarytool`.
 
-Build the app bundle for release:
-
-```bash
-./create_app.sh
-```
-
-This creates `SpotBar.app` ready for distribution.
-
-### Step 4: Create Git Tag
-
-Create an annotated git tag for the version:
-
-```bash
-git tag -a vX.Y.Z -m "Release vX.Y.Z: Description of changes"
-git push origin vX.Y.Z
-```
-
-### Step 5: Create GitHub Release
-
-Create the GitHub release with release notes from CHANGELOG:
-
-```bash
-gh release create vX.Y.Z \
-  --title "vX.Y.Z - Release Title" \
-  --notes "$(cat <<EOF
-## Added
-- Feature 1
-- Feature 2
-
-## Changed
-- Change 1
-
-## Fixed
-- Fix 1
-EOF
-)"
-```
-
-### Step 6: Attach App Bundle
-
-Package and attach the app bundle to the release:
-
-```bash
-zip -r SpotBar.app.zip SpotBar.app
-gh release upload vX.Y.Z SpotBar.app.zip
-rm SpotBar.app.zip  # Clean up local zip
-```
-
-### Complete Release Script
-
-For convenience, here's a complete release workflow:
-
-```bash
-#!/bin/bash
-# release.sh - Complete release workflow
-
-VERSION=$1
-if [ -z "$VERSION" ]; then
-    echo "Usage: ./release.sh X.Y.Z"
-    exit 1
-fi
-
-# Build app
-echo "Building SpotBar..."
-./create_app.sh
-
-# Create tag
-echo "Creating tag v$VERSION..."
-git tag -a "v$VERSION" -m "Release v$VERSION"
-
-# Push tag
-echo "Pushing tag..."
-git push origin "v$VERSION"
-
-# Create zip
-echo "Creating archive..."
-zip -r SpotBar.app.zip SpotBar.app
-
-# Create release (you'll need to manually add release notes)
-echo "Creating GitHub release..."
-gh release create "v$VERSION" \
-  --title "v$VERSION" \
-  --notes "See CHANGELOG.md for details" \
-  SpotBar.app.zip
-
-# Cleanup
-rm SpotBar.app.zip
-echo "Release v$VERSION created!"
-```
-
-## Deployment
-
-### Local Testing
-
-Before releasing, test the app bundle locally:
-
-```bash
-./create_app.sh
-open SpotBar.app
-```
-
-Verify:
-- App appears in menubar
-- Displays currently playing music correctly
-- Updates in real-time
-- Handles edge cases (no music playing, long song names, etc.)
-
-### Distribution
-
-The release process automatically:
-1. Creates a GitHub release
-2. Attaches `SpotBar.app.zip` as a downloadable asset
-3. Users can download, unzip, and run the app
-
-### Post-Release
-
-After a successful release:
-1. Verify the release appears on GitHub
-2. Test downloading and running the app from the release
-3. Update any documentation if needed
-4. Announce the release (if applicable)
-
-## Workflow Summary
+## Project Structure
 
 ```
-1. Update CHANGELOG.md
-   ↓
-2. Commit and push changes
-   ↓
-3. Build app bundle (./create_app.sh)
-   ↓
-4. Create git tag (vX.Y.Z)
-   ↓
-5. Push tag to GitHub
-   ↓
-6. Create GitHub release with notes
-   ↓
-7. Attach SpotBar.app.zip to release
-   ↓
-8. Verify release on GitHub
+SpotBar/
+  Sources/SpotBar/        # Swift source files
+  Scripts/                # Build, run, release scripts
+  assets/                 # Icon PNGs (16px - 1024px)
+  .github/workflows/     # CI/CD
+  version.env            # Version single source of truth
+  Makefile               # Unified commands
+  CHANGELOG.md           # Release history
+  WORKFLOW.md            # This file
+  Package.swift          # SPM package definition
+  icon.icns              # Compiled app icon
 ```
-
-## Troubleshooting
-
-### Build Issues
-
-- **Swift version mismatch**: Ensure Swift 5.9+ is installed (`swift --version`)
-- **Missing dependencies**: Run `swift package resolve`
-- **Permission errors**: Ensure scripts are executable (`chmod +x create_app.sh`)
-
-### Release Issues
-
-- **Tag already exists**: Delete local and remote tag, then recreate
-  ```bash
-  git tag -d vX.Y.Z
-  git push origin :refs/tags/vX.Y.Z
-  ```
-- **GitHub CLI not authenticated**: Run `gh auth login`
-- **Release creation fails**: Check GitHub permissions and network connection
-
-### App Bundle Issues
-
-- **App won't run**: Check executable permissions (`chmod +x SpotBar.app/Contents/MacOS/SpotBar`)
-- **Missing icon**: Ensure `icon.icns` exists and is copied to Resources
-- **Info.plist errors**: Verify `Info.plist` is valid XML

@@ -24,14 +24,12 @@ final class MenuBarMarqueeView: NSView {
     private var offset: CGFloat = 0
     
     private let font: NSFont
-    private let contextMenu: NSMenu
     private let scrollInterval: TimeInterval = 0.035
     private let scrollStep: CGFloat = 1.25
     private let padding = "   "
     
-    init(width: CGFloat, font: NSFont, menu: NSMenu) {
+    init(width: CGFloat, font: NSFont) {
         self.font = font
-        self.contextMenu = menu
         super.init(frame: NSRect(x: 0, y: 0, width: width, height: 22))
         wantsLayer = true
         layer?.masksToBounds = true
@@ -116,21 +114,6 @@ final class MenuBarMarqueeView: NSView {
         label.frame.origin.y = y
     }
     
-    override func rightMouseDown(with event: NSEvent) {
-        NSMenu.popUpContextMenu(contextMenu, with: event, for: self)
-    }
-    
-    override func menu(for event: NSEvent) -> NSMenu? {
-        contextMenu
-    }
-    
-    override func mouseDown(with event: NSEvent) {
-        if event.modifierFlags.contains(.control) {
-            NSMenu.popUpContextMenu(contextMenu, with: event, for: self)
-            return
-        }
-        super.mouseDown(with: event)
-    }
 }
 
 class MenuBarController: ObservableObject {
@@ -158,13 +141,19 @@ class MenuBarController: ObservableObject {
     
     private func setupStatusBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: statusItemWidth)
-        
-        guard let statusItem = statusItem else { return }
-        
+
+        guard let statusItem = statusItem,
+              let button = statusItem.button else { return }
+
+        statusItem.menu = statusMenu
+
         let font = NSFont.systemFont(ofSize: 13)
-        let view = MenuBarMarqueeView(width: statusItemWidth, font: font, menu: statusMenu)
+        let view = MenuBarMarqueeView(width: statusItemWidth, font: font)
         marqueeView = view
-        statusItem.view = view
+
+        button.addSubview(view)
+        view.frame = button.bounds
+        view.autoresizingMask = [.width, .height]
     }
     
     private func observeMusicUpdates() {

@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: swift build -c release
+
+      - name: Package app bundle
+        run: SIGNING_MODE=adhoc ./Scripts/package_app.sh release
+
+      - name: Verify app bundle
+        run: |
+          test -d SpotBar.app
+          test -f SpotBar.app/Contents/MacOS/SpotBar
+          test -f SpotBar.app/Contents/Info.plist
+          test -f SpotBar.app/Contents/Resources/icon.icns
+          codesign -vv SpotBar.app

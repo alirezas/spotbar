@@ -1,155 +1,96 @@
 import Foundation
-import MediaPlayer
 import Combine
 import AppKit
 
 class MusicPlayerMonitor: ObservableObject {
     @Published var currentTrack: String = ""
-    
+
     private var timer: Timer?
-    private let nowPlayingInfoCenter = MPNowPlayingInfoCenter.default()
-    
+
     init() {
         startMonitoring()
     }
-    
+
     func startMonitoring() {
-        // Poll for updates every 0.5 seconds
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.updateTrackInfo()
         }
-        
-        // Initial update
         updateTrackInfo()
     }
-    
-    @objc private func updateTrackInfo() {
-        // Try MPNowPlayingInfoCenter first
-        if let nowPlayingInfo = nowPlayingInfoCenter.nowPlayingInfo {
-            let artist = nowPlayingInfo[MPMediaItemPropertyArtist] as? String ?? "Unknown Artist"
-            let title = nowPlayingInfo[MPMediaItemPropertyTitle] as? String ?? "Unknown Title"
-            
-            let trackString = "\(artist) - \(title)"
-            
-            DispatchQueue.main.async {
-                self.currentTrack = trackString
-            }
-            return
-        }
-        
-        // Fallback: Try Spotify via AppleScript
-        if let spotifyTrack = getSpotifyTrack() {
-            DispatchQueue.main.async {
-                self.currentTrack = spotifyTrack
-            }
-            return
-        }
 
-        // Check Google Chrome for audible media (e.g., YouTube)
-        if let chromeVideoTitle = getChromeVideoTitle() {
-            DispatchQueue.main.async {
-                self.currentTrack = chromeVideoTitle
-            }
-            return
-        }
-        
-        // No music playing
+    private func updateTrackInfo() {
+        let track = getSpotifyTrack() ?? getBrowserTrack()
+
         DispatchQueue.main.async {
-            self.currentTrack = ""
+            self.currentTrack = track ?? ""
         }
     }
-    
+
+    private func runAppleScript(_ source: String) -> String? {
+        guard let script = NSAppleScript(source: source) else { return nil }
+        var error: NSDictionary?
+        let result = script.executeAndReturnError(&error)
+        guard error == nil else { return nil }
+        return result.stringValue
+    }
+
     private func getSpotifyTrack() -> String? {
         let script = """
-        tell application "Spotify"
-            if player state is playing then
-                set artistName to artist of current track
-                set trackName to name of current track
-                return artistName & " - " & trackName
-            end if
-        end tell
+        if application "Spotify" is running then
+            tell application "Spotify"
+                if player state is playing then
+                    set artistName to artist of current track
+                    set trackName to name of current track
+                    return artistName & " - " & trackName
+                end if
+            end tell
+        end if
         """
-        
-        guard let appleScript = NSAppleScript(source: script) else { return nil }
-        
-        var error: NSDictionary?
-        let result = appleScript.executeAndReturnError(&error)
-        
-        if error == nil {
-            return result.stringValue
-        }
-        
-        return nil
+        return runAppleScript(script)
     }
 
-    private func getChromeVideoTitle() -> String? {
-        // Using raw string literal to avoid escaping issues
-        // In AppleScript, we use backslash-quote (\") to embed quotes inside a string
-        let script = #"""
-        tell application "Google Chrome"
-            if it is not running then return missing value
-            if (count of windows) is 0 then return missing value
-            
-            set targetTitle to missing value
-            set jsCheck to "(() => { const media = Array.from(document.querySelectorAll(\"video,audio\")); if (media.length === 0) return \"NO_MEDIA\"; const playing = media.find(m => !m.paused && !m.ended && m.currentTime > 0); if (playing) return document.title || \"\"; return \"PAUSED\"; })();"
-            
-            repeat with w in every window
-                repeat with t in every tab of w
-                    set jsResult to "NO_MEDIA"
-                    try
-                        set jsResult to execute t javascript jsCheck
-                    end try
-                    
-                    if jsResult is not "PAUSED" and jsResult is not "NO_MEDIA" and jsResult is not "" then
-                        set targetTitle to jsResult
-                        exit repeat
-                    end if
-                    
-                    if jsResult is "PAUSED" then
-                        -- Video is paused, skip fallbacks
-                    else
-                        set isAudible to false
-                        try
-                            set isAudible to audible of t
-                        end try
-                        
-                        if isAudible is true then
-                            set targetTitle to title of t
-                            exit repeat
+    private func getBrowserTrack() -> String? {
+        // Check Chrome for YouTube or SoundCloud tabs
+        let script = """
+        if application "Google Chrome" is running then
+            tell application "Google Chrome"
+                repeat with w in every window
+                    repeat with t in every tab of w
+                        set tabURL to URL of t
+                        if tabURL contains "youtube.com/watch" or tabURL contains "music.youtube.com" or tabURL contains "soundcloud.com" then
+                            return title of t
                         end if
-                    end if
+                    end repeat
                 end repeat
-                
-                if targetTitle is not missing value then exit repeat
-            end repeat
-            
-            return targetTitle
-        end tell
-        """#
-        
-        guard let appleScript = NSAppleScript(source: script) else { return nil }
-        
-        var error: NSDictionary?
-        let result = appleScript.executeAndReturnError(&error)
-        
-        if let error = error {
-            // -1743 is "Not permitted to send Apple events"
-            if let code = error[NSAppleScript.errorNumber] as? Int, code == -1743 {
-                return "Allow Chrome automation in System Settings → Privacy & Security → Automation"
+            end tell
+        end if
+        """
+
+        guard let title = runAppleScript(script) else { return nil }
+        return cleanBrowserTitle(title)
+    }
+
+    private func cleanBrowserTitle(_ title: String) -> String? {
+        var cleaned = title
+
+        let suffixes = [
+            " - YouTube Music",
+            " - YouTube",
+            " | SoundCloud",
+            " on SoundCloud",
+            " | Free Listening on SoundCloud",
+        ]
+        for suffix in suffixes {
+            if cleaned.hasSuffix(suffix) {
+                cleaned = String(cleaned.dropLast(suffix.count))
+                break
             }
-            if let code = error[NSAppleScript.errorNumber] as? Int, code == 12 {
-                return "Enable Chrome: View → Developer → Allow JavaScript from Apple Events"
-            }
-            return nil
-        }
-        
-        if let title = result.stringValue, !title.isEmpty {
-            return "Chrome - \(title)"
         }
 
-        return nil
+        cleaned = cleaned.trimmingCharacters(in: .whitespaces)
+        return cleaned.isEmpty ? nil : cleaned
     }
-    
+
     deinit {
         timer?.invalidate()
     }

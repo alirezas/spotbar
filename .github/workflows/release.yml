@@ -1,0 +1,36 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    runs-on: macos-14
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build universal binary
+        run: SIGNING_MODE=adhoc ARCHES="arm64 x86_64" ./Scripts/package_app.sh release
+
+      - name: Package
+        run: |
+          source version.env
+          zip -r "SpotBar-${MARKETING_VERSION}.zip" SpotBar.app
+
+      - name: Extract release notes
+        id: notes
+        run: |
+          source version.env
+          NOTES=$(awk "/^## \[${MARKETING_VERSION}\]/,/^## \[/" CHANGELOG.md | sed '$d' | sed '1d')
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.notes.outputs.notes }}
+          files: SpotBar-*.zip

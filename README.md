@@ -1,94 +1,59 @@
 # SpotBar
 
-A macOS menubar app that displays the currently playing song in "artist - song" format.
+A lightweight macOS menubar app that displays the currently playing song as **Artist - Title**.
 
 ## Features
 
-- Displays currently playing music from any app (Spotify, Apple Music, etc.)
-- Updates in real-time
-- No dock icon (runs in menubar only)
-- Automatically truncates long song names
+- Shows currently playing music from Spotify, YouTube, YouTube Music, and SoundCloud
+- Real-time updates with marquee scrolling for long titles
+- Uses AppleScript for Spotify and Chrome tab detection for browser sources
+- Hides from menubar when no music is playing
+- No dock icon — runs entirely in the menubar
+
+## Requirements
+
+- macOS 13.0+
+- Swift 5.9+
 
 ## Building
 
-### Create App Bundle (Recommended)
-
-The easiest way to build a proper macOS app bundle:
-
 ```bash
-./create_app.sh
+make build   # Build app bundle (single arch)
+make run     # Build and launch (kills previous instance)
 ```
 
-This will create `SpotBar.app` which you can double-click to run or move to your Applications folder.
-
-### Using Swift Package Manager
+Or build a universal binary (arm64 + x86_64):
 
 ```bash
-swift build -c release
+make build-universal
 ```
-
-The executable will be in `.build/release/SpotBar`
-
-### Using Xcode
-
-1. Open the project in Xcode:
-   ```bash
-   open Package.swift
-   ```
-
-2. Select the `SpotBar` scheme and build (⌘B)
-
-3. Run the app (⌘R)
 
 ## Usage
 
-1. Build and run the app
-2. The app will appear in your menubar showing the currently playing song
-3. If no music is playing, it will display "No music playing"
+1. Build and run with `make run`
+2. The app appears in your menubar showing the currently playing song
+3. Right-click the menubar item for options (Quit)
 
-### If macOS says “SpotBar.app is damaged”
+### If macOS says "SpotBar.app is damaged"
 
-Gatekeeper can flag unsigned downloads as “damaged.” Clear the quarantine bit and open:
-
-```bash
-xattr -cr "$HOME/Downloads/SpotBar.app"
-open "$HOME/Downloads/SpotBar.app"
-```
-
-If it still blocks, Control-click the app → Open → Open. To force a one-time allow when testing unsigned builds:
+Clear the quarantine bit:
 
 ```bash
-sudo spctl --master-disable
-xattr -dr com.apple.quarantine "$HOME/Downloads/SpotBar.app"
-open "$HOME/Downloads/SpotBar.app"
-sudo spctl --master-enable
-```
-
-To verify the download isn’t actually corrupt:
-
-```bash
-codesign -vv "$HOME/Downloads/SpotBar.app"
-spctl -a -vv "$HOME/Downloads/SpotBar.app"
+xattr -cr SpotBar.app
+open SpotBar.app
 ```
 
 ## Permissions
 
-The app uses the MediaPlayer framework to access system-wide music information. For Spotify, it uses AppleScript which may require automation permissions:
-- System Settings → Privacy & Security → Automation
-- Allow SpotBar to control Spotify
+The app needs automation permissions for AppleScript access:
 
-## Requirements
+**System Settings -> Privacy & Security -> Automation -> Allow SpotBar to control Spotify / Google Chrome**
 
-- macOS 13.0 or later
-- Swift 5.9 or later
+## Development
 
-## Development Workflow
+See [WORKFLOW.md](WORKFLOW.md) for the full development, versioning, and release workflow.
 
-For detailed information on building, versioning, and releasing SpotBar, see [WORKFLOW.md](WORKFLOW.md).
+Quick release:
 
-Quick release workflow:
 1. Update `CHANGELOG.md` with new version and changes
-2. Build: `./create_app.sh`
-3. Tag: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
-4. Push tag: `git push origin vX.Y.Z`
-5. Create release: `gh release create vX.Y.Z --title "vX.Y.Z" --notes "..." SpotBar.app.zip`
+2. Run `./Scripts/release.sh X.Y.Z`
