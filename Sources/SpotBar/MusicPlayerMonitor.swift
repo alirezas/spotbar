@@ -4,103 +4,143 @@ import AppKit
 
 class MusicPlayerMonitor: ObservableObject {
     @Published var currentTrack: String = ""
+    @Published var isPlaying: Bool = false
 
-    private var timer: Timer?
-    private let pollQueue = DispatchQueue(label: "com.dot.spotbar.poll", qos: .userInitiated)
+    private var streamProcess: Process?
+    private var outputPipe: Pipe?
 
     init() {
-        startMonitoring()
+        startStreaming()
     }
 
-    private func startMonitoring() {
-        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            self?.pollQueue.async {
-                self?.updateTrackInfo()
+    func togglePlayPause() {
+        runAdapterCommand(["send", "2"])
+    }
+
+    func nextTrack() {
+        runAdapterCommand(["send", "4"])
+    }
+
+    func previousTrack() {
+        runAdapterCommand(["send", "5"])
+    }
+
+    // MARK: - MediaRemote Adapter Integration
+
+    private func adapterPaths() -> (perlScript: String, frameworkPath: String, testClientPath: String)? {
+        let bundle = Bundle.main
+        guard let helpers = bundle.resourceURL?.deletingLastPathComponent().appendingPathComponent("Helpers") else {
+            return nil
+        }
+        let script = helpers.appendingPathComponent("mediaremote-adapter.pl").path
+        let framework = helpers.appendingPathComponent("MediaRemoteAdapter.framework").path
+        let testClient = helpers.appendingPathComponent("MediaRemoteAdapterTestClient").path
+
+        guard FileManager.default.fileExists(atPath: script),
+              FileManager.default.fileExists(atPath: framework) else {
+            return nil
+        }
+        return (script, framework, testClient)
+    }
+
+    private func startStreaming() {
+        guard let paths = adapterPaths() else {
+            NSLog("SpotBar: MediaRemote adapter not found in bundle")
+            return
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
+        process.arguments = [paths.perlScript, paths.frameworkPath, paths.testClientPath, "stream", "--no-diff", "--debounce=100"]
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+
+        process.terminationHandler = { [weak self] proc in
+            guard let self = self else { return }
+            NSLog("SpotBar: adapter stream exited with code \(proc.terminationStatus), restarting...")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                self.startStreaming()
             }
         }
-        pollQueue.async { [weak self] in
-            self?.updateTrackInfo()
+
+        outputPipe = pipe
+        streamProcess = process
+
+        // Read output on background thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.readStream(pipe: pipe)
+        }
+
+        do {
+            try process.run()
+        } catch {
+            NSLog("SpotBar: Failed to start adapter: \(error)")
         }
     }
 
-    private func updateTrackInfo() {
-        let track = getSpotifyTrack() ?? getBrowserTrack()
+    private func readStream(pipe: Pipe) {
+        let handle = pipe.fileHandleForReading
+        var buffer = Data()
+
+        while true {
+            let data = handle.availableData
+            if data.isEmpty { break } // EOF
+
+            buffer.append(data)
+
+            // Process complete lines
+            while let newlineRange = buffer.range(of: Data([0x0A])) {
+                let lineData = buffer.subdata(in: buffer.startIndex..<newlineRange.lowerBound)
+                buffer.removeSubrange(buffer.startIndex...newlineRange.lowerBound)
+                processLine(lineData)
+            }
+        }
+    }
+
+    private func processLine(_ data: Data) {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let payload = json["payload"] as? [String: Any] else {
+            return
+        }
+
+        let title = payload["title"] as? String
+        let artist = payload["artist"] as? String
+        let playing = payload["playing"] as? Bool ?? false
+
+        let track: String
+        if let title = title, !title.isEmpty {
+            if let artist = artist, !artist.isEmpty {
+                track = "\(artist) - \(title)"
+            } else {
+                track = title
+            }
+        } else {
+            track = ""
+        }
 
         DispatchQueue.main.async {
-            self.currentTrack = track ?? ""
+            self.currentTrack = track
+            self.isPlaying = playing
         }
     }
 
-    private func runAppleScript(_ source: String) -> String? {
-        guard let script = NSAppleScript(source: source) else { return nil }
-        var error: NSDictionary?
-        let result = script.executeAndReturnError(&error)
-        guard error == nil else { return nil }
-        return result.stringValue
-    }
+    private func runAdapterCommand(_ args: [String]) {
+        guard let paths = adapterPaths() else { return }
 
-    private func getSpotifyTrack() -> String? {
-        let script = """
-        if application "Spotify" is running then
-            tell application "Spotify"
-                if player state is playing then
-                    set artistName to artist of current track
-                    set trackName to name of current track
-                    return artistName & " - " & trackName
-                end if
-            end tell
-        end if
-        """
-        return runAppleScript(script)
-    }
-
-    private func getBrowserTrack() -> String? {
-        // Check Chrome for audible YouTube or SoundCloud tabs
-        let script = """
-        if application "Google Chrome" is running then
-            tell application "Google Chrome"
-                repeat with w in every window
-                    repeat with t in every tab of w
-                        set tabURL to URL of t
-                        if tabURL contains "youtube.com/watch" or tabURL contains "music.youtube.com" or tabURL contains "soundcloud.com" then
-                            try
-                                if audible of t then return title of t
-                            on error
-                                return title of t
-                            end try
-                        end if
-                    end repeat
-                end repeat
-            end tell
-        end if
-        """
-
-        guard let title = runAppleScript(script) else { return nil }
-        return cleanBrowserTitle(title)
-    }
-
-    private func cleanBrowserTitle(_ title: String) -> String? {
-        var cleaned = title
-
-        let suffixes = [
-            " - YouTube Music",
-            " - YouTube",
-            " | SoundCloud",
-            " on SoundCloud",
-            " | Free Listening on SoundCloud",
-        ]
-        for suffix in suffixes {
-            if cleaned.hasSuffix(suffix) {
-                cleaned = String(cleaned.dropLast(suffix.count))
-                break
-            }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
+            process.arguments = [paths.perlScript, paths.frameworkPath, paths.testClientPath] + args
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            try? process.run()
+            process.waitUntilExit()
         }
-
-        cleaned = cleaned.trimmingCharacters(in: .whitespaces)
-        return cleaned.isEmpty ? nil : cleaned
     }
 
     deinit {
-        timer?.invalidate()
+        streamProcess?.terminate()
     }
 }

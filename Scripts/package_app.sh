@@ -55,7 +55,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
     <key>CFBundleIconFile</key><string>icon</string>
-    <key>NSAppleEventsUsageDescription</key><string>SpotBar needs permission to read media info from Spotify and Google Chrome.</string>
+    <key>NSAppleEventsUsageDescription</key><string>SpotBar uses the system media session to detect and control music playback.</string>
     <key>BuildTimestamp</key><string>${BUILD_TIMESTAMP}</string>
     <key>GitCommit</key><string>${GIT_COMMIT}</string>
 </dict>
@@ -91,6 +91,30 @@ install_binary() {
 
 install_binary "$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
 
+# Build and bundle MediaRemote adapter
+ADAPTER_REPO="https://github.com/ungive/mediaremote-adapter.git"
+ADAPTER_DIR="$ROOT/.build/mediaremote-adapter"
+ADAPTER_BUILD="$ADAPTER_DIR/build"
+
+if [[ ! -d "$ADAPTER_DIR/.git" ]]; then
+  echo "Cloning mediaremote-adapter..."
+  rm -rf "$ADAPTER_DIR"
+  git clone --depth 1 "$ADAPTER_REPO" "$ADAPTER_DIR"
+fi
+
+if [[ ! -f "$ADAPTER_BUILD/MediaRemoteAdapter.framework/MediaRemoteAdapter" ]]; then
+  echo "Building MediaRemoteAdapter framework..."
+  mkdir -p "$ADAPTER_BUILD"
+  (cd "$ADAPTER_BUILD" && cmake .. && cmake --build .)
+fi
+
+HELPERS="$APP/Contents/Helpers"
+mkdir -p "$HELPERS"
+cp -R "$ADAPTER_BUILD/MediaRemoteAdapter.framework" "$HELPERS/"
+cp "$ADAPTER_DIR/bin/mediaremote-adapter.pl" "$HELPERS/"
+cp "$ADAPTER_BUILD/MediaRemoteAdapterTestClient" "$HELPERS/"
+chmod +x "$HELPERS/mediaremote-adapter.pl" "$HELPERS/MediaRemoteAdapterTestClient"
+
 # Copy icon
 if [[ -f "$ROOT/icon.icns" ]]; then
   cp "$ROOT/icon.icns" "$APP/Contents/Resources/icon.icns"
@@ -112,9 +136,9 @@ find "$APP" -name '._*' -delete
 
 # Code sign
 if [[ "$SIGNING_MODE" == "adhoc" || -z "$APP_IDENTITY" ]]; then
-  codesign --force --sign "-" "$APP"
+  codesign --force --deep --sign "-" "$APP"
 else
-  codesign --force --timestamp --options runtime --sign "$APP_IDENTITY" "$APP"
+  codesign --force --deep --timestamp --options runtime --sign "$APP_IDENTITY" "$APP"
 fi
 
 echo "Created $APP ($MARKETING_VERSION build $BUILD_NUMBER)"

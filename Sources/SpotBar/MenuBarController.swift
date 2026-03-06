@@ -120,8 +120,11 @@ class MenuBarController: ObservableObject {
     private var statusItem: NSStatusItem?
     private let musicMonitor = MusicPlayerMonitor()
     private var cancellables = Set<AnyCancellable>()
-    private let statusItemWidth: CGFloat = 80
+    private let marqueeWidth: CGFloat = 80
+    private let buttonWidth: CGFloat = 20
+    private var totalWidth: CGFloat { buttonWidth + marqueeWidth }
     private var marqueeView: MenuBarMarqueeView?
+    private var playPauseButton: NSButton?
     private lazy var statusMenu: NSMenu = {
         let menu = NSMenu()
         let quitItem = NSMenuItem(
@@ -133,53 +136,95 @@ class MenuBarController: ObservableObject {
         menu.addItem(quitItem)
         return menu
     }()
-    
+
     init() {
         setupStatusBar()
         observeMusicUpdates()
     }
-    
+
     private func setupStatusBar() {
-        statusItem = NSStatusBar.system.statusItem(withLength: statusItemWidth)
+        statusItem = NSStatusBar.system.statusItem(withLength: totalWidth)
 
         guard let statusItem = statusItem,
               let button = statusItem.button else { return }
 
-        statusItem.menu = statusMenu
+        // Use sendAction for left-click instead of menu (menu would intercept button clicks)
+        button.target = self
+        button.action = #selector(statusBarClicked)
+        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
+        // Play/pause button on the left
+        let btn = NSButton(frame: NSRect(x: 0, y: 0, width: buttonWidth, height: 22))
+        btn.bezelStyle = .inline
+        btn.isBordered = false
+        btn.imagePosition = .imageOnly
+        btn.imageScaling = .scaleProportionallyDown
+        btn.image = NSImage(systemSymbolName: "pause.fill", accessibilityDescription: "Pause")
+        btn.target = self
+        btn.action = #selector(playPauseTapped)
+        btn.autoresizingMask = [.maxXMargin]
+        playPauseButton = btn
+        button.addSubview(btn)
+
+        // Marquee view to the right of the button
         let font = NSFont.systemFont(ofSize: 13)
-        let view = MenuBarMarqueeView(width: statusItemWidth, font: font)
-        marqueeView = view
-
-        button.addSubview(view)
-        view.frame = button.bounds
+        let view = MenuBarMarqueeView(width: marqueeWidth, font: font)
+        view.frame = NSRect(x: buttonWidth, y: 0, width: marqueeWidth, height: 22)
         view.autoresizingMask = [.width, .height]
+        marqueeView = view
+        button.addSubview(view)
     }
-    
+
     private func observeMusicUpdates() {
         musicMonitor.$currentTrack
+            .combineLatest(musicMonitor.$isPlaying)
+            .removeDuplicates { $0.0 == $1.0 && $0.1 == $1.1 }
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] track in
-                self?.updateMenuBarText(track)
+            .sink { [weak self] track, isPlaying in
+                self?.updateMenuBar(track: track, isPlaying: isPlaying)
             }
             .store(in: &cancellables)
     }
-    
-    private func updateMenuBarText(_ text: String) {
-        let targetWidth: CGFloat = text.isEmpty ? 0 : statusItemWidth
-        
+
+    private func updateMenuBar(track: String, isPlaying: Bool) {
+        let hasTrack = !track.isEmpty
+        let targetWidth: CGFloat = hasTrack ? totalWidth : 0
+
         if let statusItem = statusItem {
             statusItem.length = targetWidth
         }
-        
+
+        playPauseButton?.isHidden = !hasTrack
+        if hasTrack {
+            let iconName = isPlaying ? "pause.fill" : "play.fill"
+            let label = isPlaying ? "Pause" : "Play"
+            playPauseButton?.image = NSImage(systemSymbolName: iconName, accessibilityDescription: label)
+        }
+
         if let view = marqueeView {
-            view.setFrameSize(NSSize(width: targetWidth, height: view.frame.height))
+            let mWidth: CGFloat = hasTrack ? marqueeWidth : 0
+            view.setFrameSize(NSSize(width: mWidth, height: view.frame.height))
             view.needsLayout = true
             view.needsDisplay = true
-            view.update(text: text)
+            view.update(text: track)
         }
     }
-    
+
+    @objc private func statusBarClicked() {
+        guard let event = NSApp.currentEvent else { return }
+        if event.type == .rightMouseUp {
+            statusItem?.menu = statusMenu
+            statusItem?.button?.performClick(nil)
+            statusItem?.menu = nil
+        } else {
+            musicMonitor.togglePlayPause()
+        }
+    }
+
+    @objc private func playPauseTapped() {
+        musicMonitor.togglePlayPause()
+    }
+
     @objc private func quitApp() {
         NSApplication.shared.terminate(nil)
     }

@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-03-06
+
+### Changed
+- Replaced AppleScript + Chrome JavaScript injection with [MediaRemote adapter](https://github.com/ungive/mediaremote-adapter)
+- Music detection now uses the macOS system media session (same as Control Center)
+- Works with **any** media source — Spotify, YouTube, SoundCloud, Apple Music, VLC, and more
+- Real-time streaming updates instead of 0.5s polling
+- No longer requires "Allow JavaScript from Apple Events" in Chrome
+- No longer requires Automation permissions for Spotify or Chrome
+
+### Added
+- Play/pause toggle button in the menubar (left of track title)
+- Next/previous track control support (via MediaRemote commands)
+- Auto-restart of media adapter on unexpected exit
+
+### Removed
+- AppleScript-based music detection
+- Chrome tab scanning and JavaScript injection
+- `MusicSource` enum (source routing now handled by the OS)
+
 ## [0.2.0] - 2026-03-06
 
 ### Changed

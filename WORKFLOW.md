@@ -5,8 +5,8 @@
 Version is tracked in a single file: `version.env`
 
 ```
-MARKETING_VERSION=0.1.0
-BUILD_NUMBER=5
+MARKETING_VERSION=0.3.0
+BUILD_NUMBER=7
 ```
 
 - `MARKETING_VERSION` — semver displayed to users (CFBundleShortVersionString)
@@ -123,6 +123,26 @@ APP_IDENTITY="Developer ID Application: Your Name (TEAMID)" make build
 ```
 
 **Notarization:** Not yet configured. When ready, add a `Scripts/sign-and-notarize.sh` using `xcrun notarytool`.
+
+## Architecture
+
+SpotBar uses the [MediaRemote adapter](https://github.com/ungive/mediaremote-adapter) to read now-playing information from the macOS system media session. This is the same API that powers the Control Center "Now Playing" widget.
+
+The adapter is an Objective-C framework that is invoked via `/usr/bin/perl` (which has the `com.apple.perl5` bundle identifier, granting it access to the private MediaRemote framework). The build system automatically clones and compiles the adapter, then bundles it into the app.
+
+### App Bundle Layout
+
+```
+SpotBar.app/
+  Contents/
+    MacOS/SpotBar                           # Main binary
+    Helpers/
+      MediaRemoteAdapter.framework/         # MediaRemote bridge
+      mediaremote-adapter.pl                # Perl script (invoked via /usr/bin/perl)
+      MediaRemoteAdapterTestClient          # Adapter self-test binary
+    Resources/icon.icns
+    Info.plist                              # Generated at build time
+```
 
 ## Project Structure
 

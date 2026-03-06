@@ -21,4 +21,7 @@ jobs:
           test -f SpotBar.app/Contents/MacOS/SpotBar
           test -f SpotBar.app/Contents/Info.plist
           test -f SpotBar.app/Contents/Resources/icon.icns
+          test -d SpotBar.app/Contents/Helpers/MediaRemoteAdapter.framework
+          test -f SpotBar.app/Contents/Helpers/mediaremote-adapter.pl
+          test -f SpotBar.app/Contents/Helpers/MediaRemoteAdapterTestClient
           codesign -vv SpotBar.app
