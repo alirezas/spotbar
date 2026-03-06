@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-03-06
+
+### Changed
+- Rewritten music detection to support Spotify, YouTube, YouTube Music, and SoundCloud only
+- SoundCloud and YouTube now detected via Chrome tab URL instead of JavaScript injection
+- Replaced deprecated `statusItem.view` API with `statusItem.button` subview
+- Build system restructured: Makefile, centralized versioning (`version.env`), universal binary support
+- Info.plist now generated at build time with ad-hoc code signing
+- Scripts moved to `Scripts/` directory
+
+### Added
+- GitHub Actions CI for build validation on push/PR
+- GitHub Actions release workflow triggered by version tags
+- `make run` dev loop (kill, build, launch, verify)
+- Universal binary support (arm64 + x86_64)
+
+### Removed
+- `MPNowPlayingInfoCenter` fallback (unreliable for reading other apps' now-playing info)
+- Chrome JavaScript injection requirement for browser detection
+
 ## [0.1.0] - 2025-12-15
 
 ### Fixed
