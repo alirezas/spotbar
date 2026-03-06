@@ -11,6 +11,15 @@ A lightweight macOS menubar app that displays the currently playing song as **Ar
 - Hides from menubar when no music is playing
 - No dock icon — runs entirely in the menubar
 
+## Install
+
+```sh
+brew tap alirezas/tap
+brew install --cask spotbar
+```
+
+Or download the latest release from [GitHub Releases](https://github.com/alirezas/spotbar/releases).
+
 ## Requirements
 
 - macOS 13.0+

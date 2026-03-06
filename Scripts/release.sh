@@ -101,9 +101,21 @@ gh release create "$TAG" \
   --notes "$RELEASE_NOTES" \
   "$ZIP_FILE"
 
+# Update Homebrew tap
+echo "Updating Homebrew tap..."
+SHA=$(shasum -a 256 "$ZIP_FILE" | awk '{print $1}')
+TAP_DIR=$(mktemp -d)
+git clone --depth 1 https://github.com/alirezas/homebrew-tap.git "$TAP_DIR"
+sed -i '' "s/version \".*\"/version \"$VERSION\"/" "$TAP_DIR/Casks/spotbar.rb"
+sed -i '' "s/sha256 \".*\"/sha256 \"$SHA\"/" "$TAP_DIR/Casks/spotbar.rb"
+(cd "$TAP_DIR" && git add -A && git commit -m "Update SpotBar to $VERSION" && git push)
+rm -rf "$TAP_DIR"
+echo "Homebrew tap updated"
+
 # Cleanup
 rm -f "$ZIP_FILE"
 
 echo ""
 echo "Release $TAG created successfully!"
 echo "  View at: https://github.com/alirezas/spotbar/releases/tag/$TAG"
+echo "  Homebrew: brew tap alirezas/tap && brew install --cask spotbar"
