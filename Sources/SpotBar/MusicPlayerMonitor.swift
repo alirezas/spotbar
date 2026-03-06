@@ -6,16 +6,21 @@ class MusicPlayerMonitor: ObservableObject {
     @Published var currentTrack: String = ""
 
     private var timer: Timer?
+    private let pollQueue = DispatchQueue(label: "com.dot.spotbar.poll", qos: .userInitiated)
 
     init() {
         startMonitoring()
     }
 
-    func startMonitoring() {
+    private func startMonitoring() {
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            self?.pollQueue.async {
+                self?.updateTrackInfo()
+            }
+        }
+        pollQueue.async { [weak self] in
             self?.updateTrackInfo()
         }
-        updateTrackInfo()
     }
 
     private func updateTrackInfo() {
@@ -50,7 +55,7 @@ class MusicPlayerMonitor: ObservableObject {
     }
 
     private func getBrowserTrack() -> String? {
-        // Check Chrome for YouTube or SoundCloud tabs
+        // Check Chrome for audible YouTube or SoundCloud tabs
         let script = """
         if application "Google Chrome" is running then
             tell application "Google Chrome"
@@ -58,7 +63,11 @@ class MusicPlayerMonitor: ObservableObject {
                     repeat with t in every tab of w
                         set tabURL to URL of t
                         if tabURL contains "youtube.com/watch" or tabURL contains "music.youtube.com" or tabURL contains "soundcloud.com" then
-                            return title of t
+                            try
+                                if audible of t then return title of t
+                            on error
+                                return title of t
+                            end try
                         end if
                     end repeat
                 end repeat

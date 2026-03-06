@@ -12,7 +12,8 @@ run:
 	@./Scripts/compile_and_run.sh
 
 release:
-	@./Scripts/release.sh
+	@if [ -z "$(VERSION)" ]; then echo "Usage: make release VERSION=X.Y.Z"; exit 1; fi
+	@./Scripts/release.sh $(VERSION)
 
 clean:
 	@rm -rf .build SpotBar.app
