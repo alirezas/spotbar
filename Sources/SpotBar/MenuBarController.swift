@@ -187,26 +187,26 @@ class MenuBarController: ObservableObject {
     }
 
     private func updateMenuBar(track: String, isPlaying: Bool) {
-        let hasTrack = !track.isEmpty
-        let targetWidth: CGFloat = hasTrack ? totalWidth : 0
+        let shouldShow = !track.isEmpty && isPlaying
+        let targetWidth: CGFloat = shouldShow ? totalWidth : 0
 
         if let statusItem = statusItem {
             statusItem.length = targetWidth
         }
 
-        playPauseButton?.isHidden = !hasTrack
-        if hasTrack {
+        playPauseButton?.isHidden = !shouldShow
+        if shouldShow {
             let iconName = isPlaying ? "pause.fill" : "play.fill"
             let label = isPlaying ? "Pause" : "Play"
             playPauseButton?.image = NSImage(systemSymbolName: iconName, accessibilityDescription: label)
         }
 
         if let view = marqueeView {
-            let mWidth: CGFloat = hasTrack ? marqueeWidth : 0
+            let mWidth: CGFloat = shouldShow ? marqueeWidth : 0
             view.setFrameSize(NSSize(width: mWidth, height: view.frame.height))
             view.needsLayout = true
             view.needsDisplay = true
-            view.update(text: track)
+            view.update(text: shouldShow ? track : "")
         }
     }
 
