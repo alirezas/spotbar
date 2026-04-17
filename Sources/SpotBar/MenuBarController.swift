@@ -125,12 +125,24 @@ class MenuBarController: ObservableObject {
     private var totalWidth: CGFloat { buttonWidth + marqueeWidth }
     private var marqueeView: MenuBarMarqueeView?
     private var playPauseButton: NSButton?
+    private var settingsWindow: NSWindow?
     private lazy var statusMenu: NSMenu = {
         let menu = NSMenu()
+
+        let settingsItem = NSMenuItem(
+            title: "Settings…",
+            action: #selector(openSettings),
+            keyEquivalent: ""
+        )
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
+        menu.addItem(.separator())
+
         let quitItem = NSMenuItem(
             title: "Quit SpotBar",
             action: #selector(quitApp),
-            keyEquivalent: "q"
+            keyEquivalent: ""
         )
         quitItem.target = self
         menu.addItem(quitItem)
@@ -223,6 +235,20 @@ class MenuBarController: ObservableObject {
 
     @objc private func playPauseTapped() {
         musicMonitor.togglePlayPause()
+    }
+
+    @objc private func openSettings() {
+        if settingsWindow == nil {
+            let hosting = NSHostingController(rootView: SettingsView())
+            let window = NSWindow(contentViewController: hosting)
+            window.title = "SpotBar Settings"
+            window.styleMask = [.titled, .closable]
+            window.isReleasedWhenClosed = false
+            window.center()
+            settingsWindow = window
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        settingsWindow?.makeKeyAndOrderFront(nil)
     }
 
     @objc private func quitApp() {
