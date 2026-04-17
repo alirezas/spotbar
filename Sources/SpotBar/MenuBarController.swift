@@ -223,14 +223,10 @@ class MenuBarController: ObservableObject {
     }
 
     @objc private func statusBarClicked() {
-        guard let event = NSApp.currentEvent else { return }
-        if event.type == .rightMouseUp {
-            statusItem?.menu = statusMenu
-            statusItem?.button?.performClick(nil)
-            statusItem?.menu = nil
-        } else {
-            musicMonitor.togglePlayPause()
-        }
+        guard let event = NSApp.currentEvent, event.type == .rightMouseUp else { return }
+        statusItem?.menu = statusMenu
+        statusItem?.button?.performClick(nil)
+        statusItem?.menu = nil
     }
 
     @objc private func playPauseTapped() {
