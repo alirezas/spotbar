@@ -69,9 +69,9 @@ All scripts live in `Scripts/`:
 
 ### Prerequisites
 
-- [GitHub CLI](https://cli.github.com/) (`gh`) installed and authenticated
 - Clean working tree (no uncommitted changes)
 - Updated `CHANGELOG.md` with the new version entry
+- `HOMEBREW_TAP_TOKEN` secret configured on `alirezas/spotbar` (PAT with `repo` scope on `alirezas/homebrew-tap`) — used by the release workflow to push cask updates
 
 ### Release Process
 
@@ -89,12 +89,11 @@ The release script:
 2. Checks CHANGELOG.md contains the version
 3. Checks for clean working tree
 4. Updates `version.env` with new version + bumps build number
-5. Builds a universal binary (arm64 + x86_64)
-6. Creates `SpotBar-X.Y.Z.zip`
-7. Commits the version.env change
-8. Creates annotated git tag `vX.Y.Z`
-9. Pushes commit and tag
-10. Creates GitHub release with notes extracted from CHANGELOG
+5. Commits the version.env change
+6. Creates annotated git tag `vX.Y.Z`
+7. Pushes commit and tag
+
+The tag push triggers `.github/workflows/release.yml`, which builds a universal binary on CI, publishes the GitHub release with notes from CHANGELOG, and updates the Homebrew tap (`alirezas/homebrew-tap`) with the sha256 of the CI-built zip. Because the asset uploaded to GitHub and the sha256 written into the cask both come from the same build, they can't drift.
 
 ## CI/CD
 

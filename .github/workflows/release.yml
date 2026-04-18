@@ -34,3 +34,19 @@ jobs:
         with:
           body: ${{ steps.notes.outputs.notes }}
           files: SpotBar-*.zip
+
+      - name: Update Homebrew tap
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          source version.env
+          ZIP="SpotBar-${MARKETING_VERSION}.zip"
+          SHA=$(shasum -a 256 "$ZIP" | awk '{print $1}')
+          TAP_DIR=$(mktemp -d)
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/alirezas/homebrew-tap.git" "$TAP_DIR"
+          sed -i '' "s/version \".*\"/version \"${MARKETING_VERSION}\"/" "$TAP_DIR/Casks/spotbar.rb"
+          sed -i '' "s/sha256 \".*\"/sha256 \"${SHA}\"/" "$TAP_DIR/Casks/spotbar.rb"
+          cd "$TAP_DIR"
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -am "Update SpotBar to ${MARKETING_VERSION}"
+          git push origin main
