@@ -236,15 +236,19 @@ class MenuBarController: ObservableObject {
     @objc private func openSettings() {
         if settingsWindow == nil {
             let hosting = NSHostingController(rootView: SettingsView())
-            hosting.sizingOptions = .preferredContentSize
+            let fitting = hosting.view.fittingSize
+            let size = NSSize(
+                width: fitting.width > 0 ? fitting.width : 420,
+                height: fitting.height > 0 ? fitting.height : 260
+            )
             let window = NSWindow(
-                contentRect: .zero,
+                contentRect: NSRect(origin: .zero, size: size),
                 styleMask: [.titled, .closable],
                 backing: .buffered,
                 defer: false
             )
-            window.contentViewController = hosting
             window.title = "SpotBar Settings"
+            window.contentViewController = hosting
             window.isReleasedWhenClosed = false
             window.center()
             settingsWindow = window
