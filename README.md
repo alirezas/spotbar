@@ -48,13 +48,21 @@ The first build will automatically clone and compile the [MediaRemote adapter](h
 3. Click the play/pause icon to toggle playback
 4. Right-click the menubar item to quit
 
-### If macOS says "SpotBar.app is damaged"
+### If macOS blocks the app on first launch
 
-Clear the quarantine bit:
+SpotBar is ad-hoc signed (not notarized), so Gatekeeper will refuse to open it until you approve it once. You'll see one of two dialogs depending on your macOS version.
+
+**"Apple could not verify SpotBar.app is free of malware"** (macOS 15+):
+
+1. Open **System Settings → Privacy & Security**
+2. Scroll down and click **Open Anyway** next to the SpotBar block notice
+3. Confirm in the follow-up dialog
+
+**"SpotBar.app is damaged"** (older macOS): clear the quarantine bit:
 
 ```bash
-xattr -cr SpotBar.app
-open SpotBar.app
+xattr -cr /Applications/SpotBar.app
+open /Applications/SpotBar.app
 ```
 
 ## How It Works
